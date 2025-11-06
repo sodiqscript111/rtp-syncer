@@ -7,13 +7,15 @@ import (
 )
 
 func main() {
-	// 1. Make a video clock (90kHz)
+	// Normal test (9000 ticks later → 100ms)
 	clock := avsyncer.NewClock(90000)
-
-	// 2. Fake: "At Unix time 1000, RTP timestamp was 9000"
 	clock.SetBase(time.Unix(1000, 0), 9000)
+	dur := clock.RTPToDuration(18000)
+	fmt.Printf("Play delay: %v\n", dur)
 
-	// 3. Print something to confirm
-	fmt.Printf("Rate: %d, BaseRTP: %d, BaseWall: %v\n", 
-    clock.Rate, clock.BaseRTP, clock.BaseWall)
+	// Rollover test: base near max uint32, next packet after wrap
+	clock2 := avsyncer.NewClock(90000)
+	clock2.SetBase(time.Unix(0, 0), 4_294_967_295) // 2^32 - 1
+	durWrap := clock2.RTPToDuration(100)           // after rollover
+	fmt.Printf("\nRollover delay: %v\n", durWrap)
 }
