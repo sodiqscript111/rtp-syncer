@@ -3,6 +3,7 @@ package avsyncer
 import (
 	"sync"
 	"time"
+	"container/heap"
 
 	"github.com/pion/rtp"
 )
@@ -39,4 +40,36 @@ func NewJitterBuffer(clock *Clock, bufferTime time.Duration) *JitterBuffer {
 		bufferTime: bufferTime,
 		heap:       make(pktHeap, 0),
 	}
+}
+
+func (jb *JitterBuffer) Push(pkt *rtp.Packet) {
+	jb.lock.Lock()
+	defer jb.lock.Unlock()
+
+	idx := len(jb.heap)
+	heap.Push(&jb.heap, &pktItem{pkt: pkt, idx: idx})
+}
+
+func (jb *JitterBuffer) Pop() *rtp.Packet {
+	jb.lock.Lock()
+	defer jb.lock.Unlock()
+
+	if len(jb.heap) == 0 {
+		return nil
+	}
+
+	item := jb.heap[0]
+
+
+	offset := jb.clock.RTPToDuration(item.pkt.Timestamp)
+	playTime := jb.clock.BaseWall.Add(offset).Add(jb.bufferTime)
+
+
+	if time.Now().Before(playTime) {
+		return nil 
+	}
+
+
+	x := heap.Pop(&jb.heap)
+	return x.(*pktItem).pkt
 }
